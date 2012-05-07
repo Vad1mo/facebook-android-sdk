@@ -16,8 +16,10 @@
 
 package com.facebook.android;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,6 +54,8 @@ public final class Util {
      * before releasing.  Sending sensitive data to log is a security risk.
      */
     private static boolean ENABLE_LOG = false;
+    
+	static UploadDataProgress uploadProgress;
 
     /**
      * Generate the multi-part post body providing the parameters and boundary
@@ -202,7 +206,7 @@ public final class Util {
                 for (String key: dataparams.keySet()){
                     os.write(("Content-Disposition: form-data; filename=\"" + key + "\"" + endLine).getBytes());
                     os.write(("Content-Type: content/unknown" + endLine + endLine).getBytes());
-                    os.write(dataparams.getByteArray(key));
+                    writeWithProgress(dataparams.getByteArray(key),os);
                     os.write((endLine + "--" + strBoundary + endLine).getBytes());
 
                 }
@@ -219,6 +223,27 @@ public final class Util {
         }
         return response;
     }
+
+	
+    
+	/** If {@link Util#uploadProgress} is not null the registered progress listener will be called.
+	 * @param data to be transfered
+	 * @param os OutputStrem to transfer too
+	 * @throws IOException
+	 */
+	private static void writeWithProgress(byte[] data, OutputStream os) throws IOException {
+		BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(data));
+		byte[] buffer = new byte[8192]; //8k
+		int bytesRead = 0;
+		while ((bytesRead += bis.read(buffer)) > 0) {
+			os.write(buffer, 0, buffer.length);
+			if (uploadProgress != null){
+				uploadProgress.progress(data.length, bytesRead);
+			}	
+		}
+	}
+	
+	
 
     private static String read(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -326,4 +351,24 @@ public final class Util {
             Log.d(tag, msg);
         }
     }
+}
+
+/**
+ * Call Back showing the already transfered and total bytes send to FB
+ * 
+ *	@see {@link Util#uploadProgress}  to register your implementation 
+ * <br/>
+ * Example:
+ * <p><blockquote><pre>
+ *Util.uploadProgress = new UploadDataProgress(){
+ *		public void progress(int totalBytes, int transferedBytes) {
+ *			notification.contentView.setProgressBar(R.id.status_progress, totalBytes, transferedBytes, false);
+ *			notificationManager.notify(42, notification);
+ *		}
+ *};
+ * </pre></blockquote></p>
+ */
+interface UploadDataProgress{
+	
+	public void progress(int totalBytes, int transferedBytes);
 }
