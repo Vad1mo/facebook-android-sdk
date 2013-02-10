@@ -27,7 +27,7 @@ public class FacebookError extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private int mErrorCode = 0;
-    private String mErrorType;
+    private String mErrorType = "none";
 
     public FacebookError(String message) {
         super(message);
